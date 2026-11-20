@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>20 以内口算</title>
+<style>
+  :root {
+    --ink: #24324a;
+    --paper: #f6f1d4;
+    --line: rgba(92, 156, 196, 0.28);
+    --red: #e15a4a;
+    --green: #1f8a4c;
+    --blue: #2d6fa8;
+    --orange: #e07a2f;
+    --chip: rgba(255, 252, 241, 0.92);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background: #e7e0c4;
+    color: var(--ink);
+    font-family: "Chalkboard SE", "Yuanti SC", "PingFang SC", "Hiragino Sans GB", sans-serif;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+    touch-action: manipulation;
+  }
+
+  button, span { font-family: inherit; }
+
+  #stage {
+    position: absolute;
+    width: 1600px;
+    height: 1200px;
+    left: 0;
+    top: 0;
+    overflow: hidden;
+    transform-origin: 0 0;
+    background:
+      linear-gradient(90deg, transparent 86px, #e7b4ae 86px, #e7b4ae 92px, transparent 92px),
+      repeating-linear-gradient(
+        to bottom,
+        transparent 0,
+        transparent 62px,
+        var(--line) 62px,
+        var(--line) 64px
+      ),
+      var(--paper);
+    display: flex;
+    flex-direction: column;
+  }
+
+  header {
+    flex: 0 0 168px;
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 28px;
+    padding: 36px 56px 18px 112px;
+  }
+
+  .brand {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 240px;
+  }
+
+  .brand h1 {
+    font-size: 54px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    line-height: 1;
+  }
+
+  .brand p {
+    font-size: 26px;
+    opacity: 0.72;
+  }
+
+  .modes {
+    display: flex;
+    gap: 14px;
+    background: var(--chip);
+    padding: 10px;
+    border-radius: 999px;
+    border: 4px solid var(--ink);
+  }
+
+  .modes button {
+    appearance: none;
+    border: 0;
+    background: transparent;
+    color: var(--ink);
+    font-size: 32px;
+    font-weight: 700;
+    padding: 12px 28px;
+    border-radius: 999px;
+    cursor: pointer;
+  }
+
+  .modes button[aria-pressed="true"] {
+    background: var(--ink);
+    color: #fff8e8;
+  }
+
+  .stats {
+    display: flex;
+    align-items: stretch;
+    gap: 12px;
+    min-width: 520px;
+    justify-content: flex-end;
+  }
+
+  .stat {
+    background: var(--chip);
+    border: 4px solid var(--ink);
+    border-radius: 22px;
+    min-width: 118px;
+    padding: 8px 16px 10px;
+    text-align: center;
+  }
+
+  .stat b {
+    display: block;
+    font-size: 40px;
+    line-height: 1.1;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .stat span {
+    font-size: 22px;
+    opacity: 0.7;
+  }
+
+  .reset {
+    align-self: center;
+    appearance: none;
+    border: 0;
+    background: transparent;
+    color: var(--ink);
+    font-size: 24px;
+    text-decoration: underline;
+    text-underline-offset: 4px;
+    cursor: pointer;
+    padding: 8px;
+    opacity: 0.75;
+  }
+
+  main {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 0 80px 0 120px;
+    gap: 18px;
+  }
+
+  .eq {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 28px;
+    width: 100%;
+  }
+
+  .num, .op, .eqsign {
+    font-size: 188px;
+    font-weight: 700;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .op.plus { color: var(--orange); }
+  .op.minus { color: var(--blue); }
+
+  .blank {
+    position: relative;
+    width: 300px;
+    height: 220px;
+    border: 8px solid var(--ink);
+    border-radius: 36px;
+    background: rgba(255, 252, 241, 0.85);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 150px;
+    font-weight: 700;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    box-shadow: 0 8px 0 rgba(36, 50, 74, 0.18);
+  }
+
+  .blank.wait::after {
+    content: "";
+    position: absolute;
+    left: 16px;
+    right: 16px;
+    bottom: 14px;
+    height: 8px;
+    border-radius: 8px;
+    background: rgba(36, 50, 74, 0.12);
+    overflow: hidden;
+  }
+
+  .blank.wait::before {
+    content: "";
+    position: absolute;
+    left: 18px;
+    bottom: 16px;
+    height: 8px;
+    width: 264px;
+    border-radius: 8px;
+    background: var(--orange);
+    transform-origin: left center;
+    animation: shrink var(--wait, 3s) linear forwards;
+    z-index: 1;
+  }
+
+  @keyframes shrink {
+    from { transform: scaleX(1); }
+    to { transform: scaleX(0); }
+  }
+
+  .blank.ok {
+    background: #e5f6ea;
+    border-color: var(--green);
+    color: var(--green);
+    box-shadow: 0 8px 0 rgba(31, 138, 76, 0.25);
+  }
+
+  .blank.bad {
+    background: #fdecea;
+    border-color: var(--red);
+    color: var(--red);
+    box-shadow: 0 8px 0 rgba(225, 90, 74, 0.25);
+  }
+
+  .feedback-row {
+    width: 100%;
+    height: 72px;
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+  }
+
+  .feedback { grid-column: 2; }
+  .clear { grid-column: 3; justify-self: start; margin-left: 18px; }
+
+  .feedback {
+    height: 72px;
+    font-size: 40px;
+    font-weight: 700;
+    line-height: 72px;
+    text-align: center;
+  }
+
+  .feedback.ok { color: var(--green); }
+  .feedback.bad { color: var(--red); }
+  .feedback.wait { color: var(--ink); font-size: 32px; opacity: 0.7; }
+
+  .clear {
+    appearance: none;
+    border: 4px solid rgba(36, 50, 74, 0.35);
+    background: var(--chip);
+    color: var(--ink);
+    font-size: 28px;
+    font-weight: 700;
+    padding: 6px 18px;
+    border-radius: 14px;
+    cursor: pointer;
+    visibility: hidden;
+  }
+
+  .clear.show { visibility: visible; }
+
+  .pad {
+    flex: 0 0 470px;
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    grid-template-rows: 1fr 1fr;
+    gap: 22px;
+    padding: 10px 64px 52px 112px;
+  }
+
+  .key {
+    appearance: none;
+    border: 7px solid var(--ink);
+    background: #fffdf6;
+    color: var(--ink);
+    border-radius: 32px;
+    font-size: 92px;
+    font-weight: 700;
+    line-height: 1;
+    cursor: pointer;
+    box-shadow: 0 8px 0 var(--ink);
+  }
+
+  .key:active:not(:disabled) {
+    transform: translateY(6px);
+    box-shadow: 0 2px 0 var(--ink);
+  }
+
+  .key:disabled {
+    opacity: 0.45;
+    cursor: default;
+  }
+
+  .pop {
+    animation: pop 0.28s ease-out;
+  }
+
+  @keyframes pop {
+    0% { transform: scale(0.86); }
+    60% { transform: scale(1.06); }
+    100% { transform: scale(1); }
+  }
+</style>
+</head>
+<body>
+  <div id="stage">
+    <header>
+      <div class="brand">
+        <h1>口算练习</h1>
+        <p>结果也在 0 到 20</p>
+      </div>
+      <div class="modes" role="group" aria-label="题型">
+        <button type="button" data-mode="add" aria-pressed="false">加法</button>
+        <button type="button" data-mode="sub" aria-pressed="false">减法</button>
+        <button type="button" data-mode="mix" aria-pressed="true">加减</button>
+      </div>
+      <div class="stats">
+        <div class="stat"><b id="st-total">0</b><span>做了</span></div>
+        <div class="stat"><b id="st-ok">0</b><span>对了</span></div>
+        <div class="stat"><b id="st-rate">0%</b><span>正确率</span></div>
+        <div class="stat"><b id="st-streak">0</b><span>连对</span></div>
+        <button type="button" class="reset" id="reset">清零</button>
+      </div>
+    </header>
+
+    <main>
+      <div class="eq" id="eq">
+        <span class="num" id="qa">8</span>
+        <span class="op plus" id="qop">＋</span>
+        <span class="num" id="qb">5</span>
+        <span class="eqsign">＝</span>
+        <span class="blank" id="blank" aria-live="polite"></span>
+      </div>
+      <div class="feedback-row">
+        <div class="feedback" id="feedback"></div>
+        <button type="button" class="clear" id="clear">清除</button>
+      </div>
+    </main>
+
+    <div class="pad" id="pad"></div>
+  </div>
+
+<script>
+(function () {
+  var W = 1600, H = 1200;
+  var stage = document.getElementById("stage");
+  var STORE = "math20-kids-v1";
+
+  var state = {
+    mode: "mix",
+    total: 0,
+    correct: 0,
+    streak: 0
+  };
+
+  try {
+    var saved = JSON.parse(localStorage.getItem(STORE) || "null");
+    if (saved && (saved.mode === "add" || saved.mode === "sub" || saved.mode === "mix")) {
+      state.mode = saved.mode;
+      state.total = saved.total | 0;
+      state.correct = saved.correct | 0;
+      state.streak = saved.streak | 0;
+    }
+  } catch (e) {}
+
+  var q = null;
+  var buffer = "";
+  var locked = false;
+  var waitTimer = null;
+  var nextTimer = null;
+  var lastKey = "";
+  var lastDigitAt = 0;
+  var WAIT_MS = 3000;
+
+  function fit() {
+    var s = Math.min(window.innerWidth / W, window.innerHeight / H);
+    stage.style.transform = "scale(" + s + ")";
+    stage.style.left = ((window.innerWidth - W * s) / 2) + "px";
+    stage.style.top = ((window.innerHeight - H * s) / 2) + "px";
+  }
+
+  function save() {
+    localStorage.setItem(STORE, JSON.stringify(state));
+  }
+
+  function rand(n) {
+    return Math.floor(Math.random() * n);
+  }
+
+  function makeAdd() {
+    var sum = rand(21);
+    var a = rand(sum + 1);
+    return { a: a, op: "+", b: sum - a, ans: sum };
+  }
+
+  function makeSub() {
+    var a = rand(21);
+    var b = rand(a + 1);
+    return { a: a, op: "-", b: b, ans: a - b };
+  }
+
+  function makeQuestion() {
+    var next, key, guard = 0;
+    do {
+      if (state.mode === "add") next = makeAdd();
+      else if (state.mode === "sub") next = makeSub();
+      else next = Math.random() < 0.5 ? makeAdd() : makeSub();
+      key = next.a + next.op + next.b;
+      guard++;
+    } while (key === lastKey && guard < 8);
+    lastKey = key;
+    return next;
+  }
+
+  function renderStats() {
+    document.getElementById("st-total").textContent = state.total;
+    document.getElementById("st-ok").textContent = state.correct;
+    var rate = state.total ? Math.round((state.correct / state.total) * 100) : 0;
+    document.getElementById("st-rate").textContent = rate + "%";
+    document.getElementById("st-streak").textContent = state.streak;
+    var modes = document.querySelectorAll(".modes button");
+    for (var i = 0; i < modes.length; i++) {
+      modes[i].setAttribute("aria-pressed", modes[i].dataset.mode === state.mode ? "true" : "false");
+    }
+  }
+
+  function setBlank(text, cls) {
+    var blank = document.getElementById("blank");
+    blank.textContent = text;
+    blank.className = "blank" + (cls ? " " + cls : "");
+  }
+
+  function showQuestion() {
+    clearTimeout(waitTimer);
+    clearTimeout(nextTimer);
+    buffer = "";
+    locked = false;
+    q = makeQuestion();
+    document.getElementById("qa").textContent = q.a;
+    document.getElementById("qb").textContent = q.b;
+    var op = document.getElementById("qop");
+    op.textContent = q.op === "+" ? "＋" : "－";
+    op.className = "op " + (q.op === "+" ? "plus" : "minus");
+    setBlank("", "");
+    var fb = document.getElementById("feedback");
+    fb.textContent = "";
+    fb.className = "feedback";
+    document.getElementById("clear").className = "clear";
+    var keys = document.querySelectorAll(".key");
+    for (var i = 0; i < keys.length; i++) keys[i].disabled = false;
+    document.getElementById("eq").classList.remove("pop");
+    void document.getElementById("eq").offsetWidth;
+    document.getElementById("eq").classList.add("pop");
+  }
+
+  function paintBuffer(waiting) {
+    if (waiting) document.getElementById("blank").style.setProperty("--wait", (WAIT_MS / 1000) + "s");
+    setBlank(buffer, waiting ? "wait" : "");
+    document.getElementById("clear").className = buffer && !locked ? "clear show" : "clear";
+    var fb = document.getElementById("feedback");
+    if (waiting) {
+      fb.textContent = "可以再按一位";
+      fb.className = "feedback wait";
+    } else if (!locked) {
+      fb.textContent = "";
+      fb.className = "feedback";
+    }
+  }
+
+  function submit(n) {
+    if (locked || !q) return;
+    clearTimeout(waitTimer);
+    locked = true;
+    var keys = document.querySelectorAll(".key");
+    for (var i = 0; i < keys.length; i++) keys[i].disabled = true;
+    document.getElementById("clear").className = "clear";
+
+    var ok = n === q.ans;
+    state.total += 1;
+    if (ok) {
+      state.correct += 1;
+      state.streak += 1;
+    } else {
+      state.streak = 0;
+    }
+    save();
+    renderStats();
+
+    setBlank(String(n), ok ? "ok" : "bad");
+    var fb = document.getElementById("feedback");
+    fb.className = "feedback " + (ok ? "ok" : "bad");
+    fb.textContent = ok ? "对啦！" : "答案是 " + q.ans;
+    nextTimer = setTimeout(showQuestion, ok ? 750 : 1300);
+  }
+
+  function onDigit(d) {
+    var now = Date.now();
+    if (locked || now - lastDigitAt < 50) return;
+    lastDigitAt = now;
+    if (buffer.length === 0) {
+      buffer = String(d);
+      var canBeTwoDigits = q.ans >= 10 && (d === 1 || d === 2);
+      if (!canBeTwoDigits) {
+        paintBuffer(false);
+        submit(d);
+      } else {
+        paintBuffer(true);
+        waitTimer = setTimeout(function () {
+          submit(Number(buffer));
+        }, WAIT_MS);
+      }
+      return;
+    }
+    if (buffer.length === 1) {
+      clearTimeout(waitTimer);
+      buffer = buffer + String(d);
+      paintBuffer(false);
+      submit(Number(buffer));
+    }
+  }
+
+  function clearEntry() {
+    if (locked || !buffer) return;
+    clearTimeout(waitTimer);
+    buffer = "";
+    paintBuffer(false);
+  }
+
+  var pad = document.getElementById("pad");
+  var order = [1, 2, 3, 4, 5, 6, 7, 8, 9, 0];
+  order.forEach(function (d) {
+    var btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "key";
+    btn.textContent = String(d);
+    btn.setAttribute("aria-label", String(d));
+    btn.addEventListener("pointerdown", function (e) {
+      e.preventDefault();
+      onDigit(d);
+    });
+    pad.appendChild(btn);
+  });
+
+  document.getElementById("clear").addEventListener("pointerdown", function (e) {
+    e.preventDefault();
+    clearEntry();
+  });
+
+  document.querySelectorAll(".modes button").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      if (state.mode === btn.dataset.mode) return;
+      state.mode = btn.dataset.mode;
+      save();
+      renderStats();
+      showQuestion();
+    });
+  });
+
+  document.getElementById("reset").addEventListener("click", function () {
+    state.total = 0;
+    state.correct = 0;
+    state.streak = 0;
+    save();
+    renderStats();
+  });
+
+  document.addEventListener("keydown", function (e) {
+    if (e.repeat) return;
+    if (e.key >= "0" && e.key <= "9") {
+      e.preventDefault();
+      onDigit(Number(e.key));
+    } else if (e.key === "Backspace" || e.key === "Escape") {
+      e.preventDefault();
+      clearEntry();
+    }
+  });
+
+  window.addEventListener("resize", fit);
+  fit();
+  renderStats();
+  showQuestion();
+})();
+</script>
+</body>
+</html>
