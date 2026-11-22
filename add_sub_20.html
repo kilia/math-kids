@@ -392,7 +392,7 @@
     <header>
       <div class="brand">
         <h1>口算练习</h1>
-        <p>结果也在 0 到 20</p>
+        <p>数字和结果都是 1 到 20</p>
       </div>
       <div class="stat timer-box"><b id="timer">00:00</b><span>用时</span></div>
       <div class="stats">
@@ -524,14 +524,14 @@
   }
 
   function makeAdd() {
-    var sum = rand(21);
-    var a = rand(sum + 1);
+    var sum = 2 + rand(19);
+    var a = 1 + rand(sum - 1);
     return { a: a, op: "+", b: sum - a, ans: sum };
   }
 
   function makeSub() {
-    var a = rand(21);
-    var b = rand(a + 1);
+    var a = 2 + rand(19);
+    var b = 1 + rand(a - 1);
     return { a: a, op: "-", b: b, ans: a - b };
   }
 
