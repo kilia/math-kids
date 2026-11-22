@@ -152,6 +152,69 @@
     opacity: 0.75;
   }
 
+  .timer-box b { min-width: 2.4em; }
+
+  #play { display: none; flex: 1 1 auto; min-height: 0; flex-direction: column; }
+  #setup, #done { display: none; }
+  #stage.init #setup,
+  #stage.done #done { display: flex; }
+  #stage.play #play { display: flex; }
+  #stage.init .stats,
+  #stage.init .timer-box { visibility: hidden; }
+
+  .setup {
+    flex: 1 1 auto;
+    min-height: 0;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 18px;
+    padding: 0 80px 48px 120px;
+  }
+
+  .setup h2 {
+    font-size: 72px;
+    line-height: 1.1;
+    letter-spacing: 2px;
+  }
+
+  .setup-label {
+    margin-top: 18px;
+    font-size: 32px;
+    opacity: 0.72;
+  }
+
+  .start {
+    appearance: none;
+    margin-top: 36px;
+    border: 7px solid var(--ink);
+    background: var(--ink);
+    color: #fff8e8;
+    font-size: 48px;
+    font-weight: 700;
+    padding: 16px 84px;
+    border-radius: 999px;
+    cursor: pointer;
+    box-shadow: 0 8px 0 rgba(36, 50, 74, 0.28);
+  }
+
+  .start:active {
+    transform: translateY(6px);
+    box-shadow: 0 2px 0 rgba(36, 50, 74, 0.28);
+  }
+
+  .done-time {
+    font-size: 88px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.1;
+  }
+
+  .done-sub {
+    font-size: 40px;
+    font-weight: 700;
+  }
+
   main {
     flex: 1 1 auto;
     min-height: 0;
@@ -325,17 +388,13 @@
 </style>
 </head>
 <body>
-  <div id="stage">
+  <div id="stage" class="init">
     <header>
       <div class="brand">
         <h1>口算练习</h1>
         <p>结果也在 0 到 20</p>
       </div>
-      <div class="modes" role="group" aria-label="题型">
-        <button type="button" data-mode="add" aria-pressed="false">加法</button>
-        <button type="button" data-mode="sub" aria-pressed="false">减法</button>
-        <button type="button" data-mode="mix" aria-pressed="true">加减</button>
-      </div>
+      <div class="stat timer-box"><b id="timer">00:00</b><span>用时</span></div>
       <div class="stats">
         <div class="stat"><b id="st-total">0</b><span>做了</span></div>
         <div class="stat"><b id="st-ok">0</b><span>对了</span></div>
@@ -345,6 +404,31 @@
       </div>
     </header>
 
+    <section id="setup" class="setup">
+      <h2>准备开始</h2>
+      <p class="setup-label">做多少题</p>
+      <div class="modes" role="group" aria-label="题量">
+        <button type="button" data-count="40" aria-pressed="false">40 题</button>
+        <button type="button" data-count="50" aria-pressed="false">50 题</button>
+        <button type="button" data-count="free" aria-pressed="true">自由练习</button>
+      </div>
+      <p class="setup-label">哪种运算</p>
+      <div class="modes" role="group" aria-label="题型">
+        <button type="button" data-mode="add" aria-pressed="false">加法</button>
+        <button type="button" data-mode="sub" aria-pressed="false">减法</button>
+        <button type="button" data-mode="mix" aria-pressed="true">加减混合</button>
+      </div>
+      <button type="button" class="start" id="start">开始</button>
+    </section>
+
+    <section id="done" class="setup">
+      <h2>做完啦</h2>
+      <div class="done-time" id="done-time">00:00</div>
+      <div class="done-sub" id="done-sub"></div>
+      <button type="button" class="start" id="again">重新选择</button>
+    </section>
+
+    <div id="play">
     <main>
       <div class="eq" id="eq">
         <span class="num" id="qa">8</span>
@@ -360,39 +444,38 @@
     </main>
 
     <div class="pad" id="pad"></div>
+    </div>
   </div>
 
 <script>
 (function () {
   var W = 1600, H = 1200;
   var stage = document.getElementById("stage");
-  var STORE = "math20-kids-v1";
 
   var state = {
     mode: "mix",
+    count: "free",
+    limit: 0,
     total: 0,
     correct: 0,
-    streak: 0
+    streak: 0,
+    phase: "init"
   };
-
-  try {
-    var saved = JSON.parse(localStorage.getItem(STORE) || "null");
-    if (saved && (saved.mode === "add" || saved.mode === "sub" || saved.mode === "mix")) {
-      state.mode = saved.mode;
-      state.total = saved.total | 0;
-      state.correct = saved.correct | 0;
-      state.streak = saved.streak | 0;
-    }
-  } catch (e) {}
 
   var q = null;
   var buffer = "";
-  var locked = false;
+  var locked = true;
   var waitTimer = null;
   var nextTimer = null;
   var lastKey = "";
   var lastDigitAt = 0;
   var WAIT_MS = 3000;
+  var timerId = null;
+  var startedAt = 0;
+  var frozenMs = 0;
+  var timing = false;
+
+  try { localStorage.removeItem("math20-kids-v1"); } catch (e) {}
 
   function fit() {
     var s = Math.min(window.innerWidth / W, window.innerHeight / H);
@@ -401,8 +484,39 @@
     stage.style.top = ((window.innerHeight - H * s) / 2) + "px";
   }
 
-  function save() {
-    localStorage.setItem(STORE, JSON.stringify(state));
+  function formatTime(ms) {
+    var s = Math.floor(ms / 1000);
+    var h = Math.floor(s / 3600);
+    var m = Math.floor((s % 3600) / 60);
+    var sec = s % 60;
+    function pad(n) { return (n < 10 ? "0" : "") + n; }
+    if (h > 0) return h + ":" + pad(m) + ":" + pad(sec);
+    return pad(m) + ":" + pad(sec);
+  }
+
+  function elapsedMs() {
+    return timing ? Date.now() - startedAt : frozenMs;
+  }
+
+  function paintTimer() {
+    document.getElementById("timer").textContent = formatTime(elapsedMs());
+  }
+
+  function startTimer() {
+    startedAt = Date.now();
+    frozenMs = 0;
+    timing = true;
+    clearInterval(timerId);
+    timerId = setInterval(paintTimer, 200);
+    paintTimer();
+  }
+
+  function stopTimer() {
+    if (timing) frozenMs = Date.now() - startedAt;
+    timing = false;
+    clearInterval(timerId);
+    timerId = null;
+    paintTimer();
   }
 
   function rand(n) {
@@ -435,15 +549,13 @@
   }
 
   function renderStats() {
-    document.getElementById("st-total").textContent = state.total;
+    var totalEl = document.getElementById("st-total");
+    totalEl.textContent = state.limit ? state.total + "/" + state.limit : String(state.total);
+    totalEl.style.fontSize = state.limit ? "32px" : "40px";
     document.getElementById("st-ok").textContent = state.correct;
     var rate = state.total ? Math.round((state.correct / state.total) * 100) : 0;
     document.getElementById("st-rate").textContent = rate + "%";
     document.getElementById("st-streak").textContent = state.streak;
-    var modes = document.querySelectorAll(".modes button");
-    for (var i = 0; i < modes.length; i++) {
-      modes[i].setAttribute("aria-pressed", modes[i].dataset.mode === state.mode ? "true" : "false");
-    }
   }
 
   function setBlank(text, cls) {
@@ -505,19 +617,20 @@
     } else {
       state.streak = 0;
     }
-    save();
     renderStats();
 
     setBlank(String(n), ok ? "ok" : "bad");
     var fb = document.getElementById("feedback");
     fb.className = "feedback " + (ok ? "ok" : "bad");
     fb.textContent = ok ? "对啦！" : "答案是 " + q.ans;
-    nextTimer = setTimeout(showQuestion, ok ? 750 : 1300);
+    var finished = state.limit && state.total >= state.limit;
+    if (finished) stopTimer();
+    nextTimer = setTimeout(finished ? showDone : showQuestion, ok ? 750 : 1300);
   }
 
   function onDigit(d) {
     var now = Date.now();
-    if (locked || now - lastDigitAt < 50) return;
+    if (state.phase !== "play" || locked || now - lastDigitAt < 50) return;
     lastDigitAt = now;
     if (buffer.length === 0) {
       buffer = String(d);
@@ -568,23 +681,75 @@
     clearEntry();
   });
 
-  document.querySelectorAll(".modes button").forEach(function (btn) {
-    btn.addEventListener("click", function () {
-      if (state.mode === btn.dataset.mode) return;
-      state.mode = btn.dataset.mode;
-      save();
-      renderStats();
-      showQuestion();
-    });
-  });
+  function setPhase(phase) {
+    state.phase = phase;
+    stage.className = phase;
+  }
 
-  document.getElementById("reset").addEventListener("click", function () {
+  function enterInit() {
+    clearTimeout(waitTimer);
+    clearTimeout(nextTimer);
+    stopTimer();
+    frozenMs = 0;
+    paintTimer();
+    q = null;
+    buffer = "";
+    locked = true;
     state.total = 0;
     state.correct = 0;
     state.streak = 0;
-    save();
+    state.limit = 0;
     renderStats();
+    setPhase("init");
+  }
+
+  function showDone() {
+    locked = true;
+    document.getElementById("done-time").textContent = formatTime(frozenMs);
+    var rate = state.total ? Math.round((state.correct / state.total) * 100) : 0;
+    document.getElementById("done-sub").textContent =
+      "对了 " + state.correct + " / " + state.total + " 题，正确率 " + rate + "%";
+    setPhase("done");
+  }
+
+  function startPractice() {
+    clearTimeout(waitTimer);
+    clearTimeout(nextTimer);
+    state.total = 0;
+    state.correct = 0;
+    state.streak = 0;
+    state.limit = state.count === "free" ? 0 : Number(state.count);
+    lastKey = "";
+    q = null;
+    buffer = "";
+    locked = false;
+    renderStats();
+    setPhase("play");
+    startTimer();
+    showQuestion();
+  }
+
+  document.querySelectorAll("[data-count]").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      state.count = btn.dataset.count;
+      document.querySelectorAll("[data-count]").forEach(function (b) {
+        b.setAttribute("aria-pressed", b === btn ? "true" : "false");
+      });
+    });
   });
+
+  document.querySelectorAll("[data-mode]").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      state.mode = btn.dataset.mode;
+      document.querySelectorAll("[data-mode]").forEach(function (b) {
+        b.setAttribute("aria-pressed", b === btn ? "true" : "false");
+      });
+    });
+  });
+
+  document.getElementById("start").addEventListener("click", startPractice);
+  document.getElementById("again").addEventListener("click", enterInit);
+  document.getElementById("reset").addEventListener("click", enterInit);
 
   document.addEventListener("keydown", function (e) {
     if (e.repeat) return;
@@ -599,8 +764,7 @@
 
   window.addEventListener("resize", fit);
   fit();
-  renderStats();
-  showQuestion();
+  enterInit();
 })();
 </script>
 </body>
