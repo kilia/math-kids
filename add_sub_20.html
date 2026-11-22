@@ -203,16 +203,36 @@
     box-shadow: 0 2px 0 rgba(36, 50, 74, 0.28);
   }
 
-  .done-time {
-    font-size: 88px;
-    font-weight: 700;
-    font-variant-numeric: tabular-nums;
-    line-height: 1.1;
-  }
-
-  .done-sub {
+  .done-meta {
     font-size: 40px;
     font-weight: 700;
+    line-height: 1.3;
+    text-align: center;
+  }
+
+  .done-score {
+    display: flex;
+    align-items: baseline;
+    justify-content: center;
+    gap: 8px;
+    font-size: 220px;
+    font-weight: 700;
+    line-height: 0.9;
+    font-variant-numeric: tabular-nums;
+    color: var(--green);
+  }
+
+  .done-score span {
+    font-size: 64px;
+    font-weight: 700;
+  }
+
+  .done-time {
+    font-size: 40px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.2;
+    opacity: 0.8;
   }
 
   main {
@@ -423,8 +443,10 @@
 
     <section id="done" class="setup">
       <h2>做完啦</h2>
-      <div class="done-time" id="done-time">00:00</div>
-      <div class="done-sub" id="done-sub"></div>
+      <div class="done-meta" id="done-mode"></div>
+      <div class="done-meta" id="done-count"></div>
+      <div class="done-score" id="done-score">0<span>分</span></div>
+      <div class="done-time" id="done-time">用时 00:00</div>
       <button type="button" class="start" id="again">重新选择</button>
     </section>
 
@@ -705,10 +727,14 @@
 
   function showDone() {
     locked = true;
-    document.getElementById("done-time").textContent = formatTime(frozenMs);
+    var modeName = state.mode === "add" ? "加法" : state.mode === "sub" ? "减法" : "加减混合";
+    var countName = state.limit ? state.limit + " 题" : "自由练习";
     var rate = state.total ? Math.round((state.correct / state.total) * 100) : 0;
-    document.getElementById("done-sub").textContent =
-      "对了 " + state.correct + " / " + state.total + " 题，正确率 " + rate + "%";
+    document.getElementById("done-mode").textContent = modeName + " · " + countName;
+    document.getElementById("done-count").textContent =
+      "做了 " + state.total + " 道，对了 " + state.correct + " 道";
+    document.getElementById("done-score").innerHTML = rate + "<span>分</span>";
+    document.getElementById("done-time").textContent = "用时 " + formatTime(frozenMs);
     setPhase("done");
   }
 
